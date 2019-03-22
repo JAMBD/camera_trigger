@@ -16,9 +16,11 @@ unsigned long frame_delay_s = 10;
 unsigned long down_time_s = 2;
 int sel = -1;
 int item = 0;
-unsigned long next_frame_millis = 0;
-unsigned long button_up_millis = 0;
-unsigned long  prev_refresh = 0;
+long next_frame_millis = 0;
+long button_up_millis = 0;
+int frames_taken = 0;
+unsigned long prev_refresh = 0;
+unsigned long frame_count = 0;
 
 int prev_center = HIGH;
 int prev_up = HIGH;
@@ -30,6 +32,7 @@ const int magic = 0xDAFF0D11;
 struct data {
   int frame_delay_s;
   int down_time_s;
+  int frames;
   int magic;
 };
 
@@ -54,14 +57,17 @@ void setup() {
   if(saved.magic != magic){
     saved.frame_delay_s = frame_delay_s;
     saved.down_time_s = down_time_s;
+    saved.frames = frame_count;
     saved.magic = magic;
     EEPROM.put(0, saved);
   }else{
     frame_delay_s = saved.frame_delay_s;
     down_time_s = saved.down_time_s;
+    frame_count = saved.frames;
   }
   Serial.begin(9600);
   display.begin();
+  display.setRotation(2);
   display.clearDisplay();
 
   display.setTextSize(1);
@@ -88,30 +94,56 @@ void loop() {
 
     pre_draw(0);
     if(next_frame_millis > 0){
-      unsigned long diff = (next_frame_millis - millis())/100;
-      int sec = diff / 10;
-      int dsec = diff%10;
-      sprintf(string,"Trigger:%2d.%01ds", sec, dsec);
+      sprintf(string,"Trigger:[%c]", digitalRead(5)?' ':'#');
     }else{
       sprintf(string,"Trigger");
     }
     display.println(string);
     
     pre_draw(1);
-    sprintf(string,"Frame delay:%ds", frame_delay_s);
+    if(next_frame_millis > 0){
+      unsigned long diff = (next_frame_millis - millis())/100;
+      if (next_frame_millis < millis()){
+        diff = 0;
+      }
+      int sec = diff / 10;
+      int dsec = diff%10;
+      sprintf(string,"Frame in %2d.%01ds", sec, dsec);
+    }else{
+      sprintf(string,"Frame delay:%ds", frame_delay_s);
+    }
     display.println(string);
     
     pre_draw(2);
-    sprintf(string,"Down time:%ds", down_time_s);
+    if(next_frame_millis > 0){
+      long diff = (button_up_millis - millis())/100;
+      if (button_up_millis == -1 || button_up_millis < millis()){
+        diff = 0;
+      }
+      int sec = diff / 10;
+      int dsec = diff%10;
+      sprintf(string,"Hold for %2d.%01ds", sec, dsec);
+    }else{
+      sprintf(string,"Down time:%ds", down_time_s);
+    }
+    display.println(string);
+
+    pre_draw(3);
+    if(next_frame_millis > 0){
+      sprintf(string,"Took %3d of %3d", frames_taken, frame_count);
+    }else{
+      sprintf(string,"Frames: %d", frame_count);
+    }
     display.println(string);
     
-    pre_draw(3);
+    pre_draw(4);
     display.println("Save defaults");
 
-    if(sel == 3){
+    if(sel == 4){
       data saved;
       saved.frame_delay_s = frame_delay_s;
       saved.down_time_s = down_time_s;
+      saved.frames = frame_count;
       saved.magic = magic;
       EEPROM.put(0, saved);
       sel = -1;
@@ -125,14 +157,19 @@ void loop() {
 
   if (next_frame_millis > 0 ){
     if (next_frame_millis < millis()){
+      frames_taken ++;
       button_up_millis = next_frame_millis + down_time_s * 1000;
-      next_frame_millis += frame_delay_s*1000;
+      next_frame_millis += max(frame_delay_s, down_time_s)*1000;
       digitalWrite(5, HIGH);
     }
   }
   
   if (button_up_millis > 0 ){
     if (button_up_millis < millis()){
+      if (frame_count > 0 && frames_taken >= frame_count){
+        sel = -1;
+        next_frame_millis = 0;
+      }
       button_up_millis = -1;
       digitalWrite(5, LOW);
     }
@@ -142,7 +179,9 @@ void loop() {
     if (sel == -1){
       sel = item;
       if(item == 0){
-        next_frame_millis = millis() + frame_delay_s*1000;
+        next_frame_millis = millis();
+        button_up_millis = -1;
+        frames_taken = 0;
       }
     }else{
       sel = -1;
@@ -157,7 +196,7 @@ void loop() {
   if(!cur_up && prev_up){
     if (sel == -1){
       item += 1;
-      item %= 4;
+      item %= 5;
     }
     if(sel == 0){
     }
@@ -167,6 +206,9 @@ void loop() {
     if(sel == 2){
       down_time_s --;
     }
+    if(sel == 3){
+      frame_count --;
+    }
   }
   prev_up = cur_up;
 
@@ -174,7 +216,7 @@ void loop() {
   if(!cur_down && prev_down){
     if (sel == -1){
       item -= 1;
-      if (item < 0) item = 3;
+      if (item < 0) item = 4;
     }
     if(sel == 0){
     }
@@ -183,6 +225,9 @@ void loop() {
     }
     if(sel == 2){
       down_time_s ++;
+    }
+    if(sel == 3){
+      frame_count ++;
     }
   }
   prev_down = cur_down;
