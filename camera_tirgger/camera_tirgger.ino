@@ -79,8 +79,10 @@ void setup() {
   
   pinMode(4, OUTPUT);
   pinMode(5, OUTPUT);
+  pinMode(14, OUTPUT);
   digitalWrite(4, LOW);
   digitalWrite(5, LOW);
+  digitalWrite(14, HIGH);
   
   pinMode(7, INPUT_PULLUP);
   pinMode(8, INPUT_PULLUP);
@@ -110,7 +112,7 @@ void loop() {
       int dsec = diff%10;
       sprintf(string,"Frame in %2d.%01ds", sec, dsec);
     }else{
-      sprintf(string,"Frame delay:%ds", frame_delay_s);
+      sprintf(string,"Delay: %ds", frame_delay_s);
     }
     display.println(string);
     
@@ -149,6 +151,12 @@ void loop() {
       sel = -1;
     }
     
+    pre_draw(5);
+    display.println("Shutdown");
+
+    if(sel == 5){
+      digitalWrite(14, LOW);
+    }
     prev_down = HIGH;
     prev_up = HIGH;
     prev_refresh = millis();
@@ -196,7 +204,7 @@ void loop() {
   if(!cur_up && prev_up){
     if (sel == -1){
       item += 1;
-      item %= 5;
+      item %= 6;
     }
     if(sel == 0){
     }
@@ -216,7 +224,7 @@ void loop() {
   if(!cur_down && prev_down){
     if (sel == -1){
       item -= 1;
-      if (item < 0) item = 4;
+     if (item < 0) item = 5;
     }
     if(sel == 0){
     }
