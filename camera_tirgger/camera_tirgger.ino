@@ -132,7 +132,11 @@ void loop() {
 
     pre_draw(3);
     if(next_frame_millis > 0){
-      sprintf(string,"Took %3d of %3d", frames_taken, frame_count);
+      if (frame_count > 0){
+        sprintf(string,"Took %3d of %3d", frames_taken, frame_count);
+      }else{
+        sprintf(string,"Took %3d", frames_taken); 
+      }
     }else{
       sprintf(string,"Frames: %d", frame_count);
     }
@@ -164,7 +168,7 @@ void loop() {
   }
 
   if (next_frame_millis > 0 ){
-    if (next_frame_millis < millis()){
+    if (next_frame_millis < millis() && button_up_millis == -1){
       frames_taken ++;
       button_up_millis = next_frame_millis + down_time_s * 1000;
       next_frame_millis += max(frame_delay_s, down_time_s)*1000;
@@ -195,6 +199,7 @@ void loop() {
       sel = -1;
       if(item == 0){
         next_frame_millis = 0;
+        digitalWrite(5, LOW);
       }
     }
   }
